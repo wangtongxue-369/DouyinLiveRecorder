@@ -25,3 +25,6 @@ target_link_libraries(live_recording PRIVATE nlohmann_json::nlohmann_json)
 add_custom_command(TARGET live_recording POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_SOURCE_DIR}/url.txt ${CMAKE_CURRENT_BINARY_DIR}/DEBUG/url.txt
 )
+add_custom_command(TARGET live_recording POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_SOURCE_DIR}/cookie.txt ${CMAKE_CURRENT_BINARY_DIR}/DEBUG/cookie.txt
+)
