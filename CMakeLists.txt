@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.10)
+cmake_minimum_required(VERSION 3.21)
 
 project(live_recording)
 
@@ -26,5 +26,11 @@ add_custom_command(TARGET live_recording POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_SOURCE_DIR}/url.txt ${CMAKE_CURRENT_BINARY_DIR}/DEBUG/url.txt
 )
 add_custom_command(TARGET live_recording POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_SOURCE_DIR}/cookie.txt ${CMAKE_CURRENT_BINARY_DIR}/DEBUG/cookie.txt
+    COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_SOURCE_DIR}/conf.txt ${CMAKE_CURRENT_BINARY_DIR}/DEBUG/conf.txt
+)
+add_custom_command(TARGET live_recording POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:live_recording> $<TARGET_FILE_DIR:live_recording>/
+    COMMAND ${CMAKE_COMMAND} -E copy_deps $<TARGET_FILE:live_recording>
+        --dest-dir $<TARGET_FILE_DIR:live_recording>
+        --strip
 )

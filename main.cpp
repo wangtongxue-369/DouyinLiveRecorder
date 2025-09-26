@@ -27,10 +27,10 @@ int main()
 	std::cout << "---------------DouyinLiveRecoder----------------" << std::endl;
 	std::cout << "please input cookie: " << std::endl;
 	std::string cookie;
-	std::ifstream cookie_f("./cookie.txt");
+	std::ifstream cookie_f("./conf.txt");
 	if (!cookie_f.is_open())
 	{
-		std::cout << "cookie.txt not found" << std::endl;
+		std::cout << "conf.txt not found" << std::endl;
 		std::cout << "please input cookie: " << std::endl;
 		getline(std::cin, cookie);
 	}
