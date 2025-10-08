@@ -6,6 +6,7 @@
 #include <fstream>
 #include <map>
 #include <nlohmann/json.hpp>
+#include <RE2/re2.h>
 
 using json = nlohmann::json;
 
@@ -129,56 +130,65 @@ int ApiUtils::dyGetLiveInfo(std::string &uid, LiveInfo &info)
     std::string json_str, cleaned_string;
     // std::cout << "start analysis" << std::endl;
 
-    std::regex ttwid_re("ttwid=([^;]+)");
-    if (std::regex_search(headerBuffer, match, ttwid_re))
+    // 获取 ttwid
+    RE2 rettwid_re(R"(ttwid=([^;]+))");
+    if (!RE2::PartialMatch(headerBuffer, rettwid_re, &info.ttwid))
     {
-        info.ttwid = match[1];
+        std::cout << "ttwid not found" << std::endl;
+        return -1;
     }
 
-    std::regex roomId_re(R"(\\\"roomId\\\":\\\"(\d+)\\\")");
-    if (std::regex_search(readBuffer, match, roomId_re))
+    // 获取 room_id 为开播为NULL
+    RE2 reroomId_re(R"(\\\"roomId\\\":\\\"(\d+)\\\")");
+    if (!RE2::PartialMatch(readBuffer, reroomId_re, &info.room_id))
     {
-        info.room_id = match[1];
+        //  未开播
     }
 
-    std::regex userId_re(R"(\\\"user_unique_id\\\":\\\"(\d+)\\\")");
-    if (std::regex_search(readBuffer, match, userId_re))
+    // 获取 user_id
+    RE2 reuserId_re(R"(\\\"user_unique_id\\\":\\\"(\d+)\\\")");
+    if (!RE2::PartialMatch(readBuffer, reuserId_re, &info.user_id))
     {
-        info.user_id = match[1];
+        std::cout << "user_id not found" << std::endl;
+        return -1;
     }
 
-    std::regex webRid_re(R"(\\\"web_rid\\\":\\\"(\d+)\\\")");
-    if (std::regex_search(readBuffer, match, webRid_re))
+    // 获取 web_rid
+    RE2 rewebRid_re(R"(\\\"web_rid\\\":\\\"(\d+)\\\")");
+    if (!RE2::PartialMatch(readBuffer, rewebRid_re, &info.web_rid))
     {
-        info.web_rid = match[1];
+        std::cout << "web_rid not found" << std::endl;
+        return -1;
     }
 
-    std::regex nickname_re(R"(\\\"nickname\\\":\\\"([^\\\"]+)\\\",\\\"avatar_thumb\\\")");
-    if (std::regex_search(readBuffer, match, nickname_re))
+    // 获取 nickname
+    RE2 renickname_re(R"(\\\"nickname\\\":\\\"([^\\\"]+)\\\",\\\"avatar_thumb\\\")");
+    if (!RE2::PartialMatch(readBuffer, renickname_re, &info.nickname))
     {
-        info.nickname = match[1];
+        std::cout << "nickname not found" << std::endl;
+        return -1;
     }
 
-    std::regex roomInfo_re(R"(\\\"roomInfo\\\":\{\\\"room\\\":\{\\\"id_str\\\":\\\".*?\\\",\\\"status\\\":(.*?),\\\"status_str\\\":\\\".*?\\\",\\\"title\\\":\\\"(.*?)\\\")");
-    if (std::regex_search(readBuffer, match, roomInfo_re))
+    // 获取room_status, room_title, http_flv_url  未开播为NULL
+    RE2 roomInfo_re(R"(\\\"roomInfo\\\":\{\\\"room\\\":\{\\\"id_str\\\":\\\".*?\\\",\\\"status\\\":(.*?),\\\"status_str\\\":\\\".*?\\\",\\\"title\\\":\\\"(.*?)\\\")");
+    if (!RE2::PartialMatch(readBuffer, roomInfo_re, &info.room_status, &info.room_title))
     {
-        info.room_status = match[1];
-        info.room_title = match[2];
     }
     if (info.room_status == "2")
     {
-        std::regex stream_url(R"(\{\\\"main\\\":\{\\\"flv\\\":\\\"([^\"]+)\\\")");
-        if (std::regex_search(readBuffer, match, stream_url))
+        RE2 stream_url(R"(\{\\\"main\\\":\{\\\"flv\\\":\\\"([^\"]+)\\\")");
+        if (!RE2::PartialMatch(readBuffer, stream_url, &info.http_flv_url))
         {
-            info.http_flv_url = match[1];
-            std::string::size_type pos = 0;
-            const std::string from = "\\u0026";
-            const std::string to = "&";
-            while ((pos = info.http_flv_url.find(from, pos)) != std::string::npos)
-            {
-                info.http_flv_url.replace(pos, from.length(), to);
-                pos += to.length();
-            }
+            std::cout << "http_flv_url not found" << std::endl;
+            return -1;
+        }
+        std::string::size_type pos = 0;
+        const std::string from = "\\u0026";
+        const std::string to = "&";
+        while ((pos = info.http_flv_url.find(from, pos)) != std::string::npos)
+        {
+            info.http_flv_url.replace(pos, from.length(), to);
+            pos += to.length();
         }
     }
 
@@ -190,71 +200,6 @@ int ApiUtils::dyGetLiveInfo(std::string &uid, LiveInfo &info)
     // std::cout << "room_title: " << info.room_title << std::endl;
     // std::cout << "web_rid: " << info.web_rid << std::endl;
     // std::cout << "http_flv_url: " << info.http_flv_url << std::endl;
-
-    return 0;
-}
-
-int ApiUtils::dyGetLiveInfo2(std::string &uid, LiveInfo &info)
-{
-    std::cout << "in" << std::endl;
-    CURL *curl = NULL;
-    CURLcode res;
-    std::string readBuffer;
-
-    std::string url = "https://live.douyin.com/webcast/room/web/enter/?";
-    std::cout << "url: " << url << std::endl;
-    std::vector<std::pair<std::string, std::string>> params = {
-        {"aid", "6383"},
-        {"app_name", "douyin_web"},
-        {"live_id", "1"},
-        {"device_platform", "web"},
-        {"language", "zh-CN"},
-        {"enter_from", "web_live"},
-        {"cookie_enabled", "true"},
-        {"screen_width", "2048"},
-        {"screen_height", "1152"},
-        {"browser_language", "zh-CN"},
-        {"browser_platform", "Win32"},
-        {"browser_name", "Chrome"},
-        {"browser_version", "139.0.0.0"},
-        {"web_rid", uid.c_str()},
-        {"room_id_str", "7549069523173903113"},
-        {"enter_source", ""},
-        {"is_need_double_stream", "false"},
-        {"insert_task_id", ""},
-        {"live_reason", ""},
-        {"msToken", "iZlrNf7cYr8bX8HPtbADdADkbXpvm-yzxnkFCeV0yC_YBuKzOSwr9-auAUrFSQGqsAGfDsEXB0s4VpXqViHfbuhBRTEUQawQ3plFsx6UmHVa0JmIy0y4ZcSPOjpXrkxZ-lea1VD9h1f3vmeJzCZq_aJis632PJb0q1FYu2CH-t8fTgdBVF7I5PM%3D"},
-        {"a_bogus", "dj4RgetwmxQbPdMGYOc3tn2UhqIlNTWyYBToRcxK9Puwc7eGh8NtLNbQJoqu4DDhJSpTio3HnjlMbEVczdUT1MnkumkvSQTbHtdnVtsoMHH4TPJg9p8MCDGELksTlATT0CcGidEIIUZrggQ3hH9iAVBG7OFnBYbBbNFUd2bbJ9VNVCjH9xdCeBSdKhv%2F"},
-    };
-    url = urlAddParam(url, params); // 带参数的url
-    std::cout << url << std::endl;
-    curl = curl_easy_init();
-    if (curl == NULL)
-    {
-        std::cout << "curl_easy_init() failed" << std::endl;
-        return -1;
-    }
-    struct curl_slist *headers = NULL;
-    headers = curl_slist_append(headers, "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36");
-    headers = curl_slist_append(headers, "Accept-Language: zh-CN,zh;q=0.8,zh-TW;q=0.7,zh-HK;q=0.5,en-US;q=0.3,en;q=0.2");
-    headers = curl_slist_append(headers, ("Referer: https://live.douyin.com/" + uid).c_str());
-    headers = curl_slist_append(headers, ("Cookie: " + cookie_).c_str());
-    // std::cout << "cookie: " << cookie_ << std::endl;
-
-    curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
-    curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
-    curl_easy_setopt(curl, CURLOPT_COOKIE, cookie_.c_str());
-    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
-    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &readBuffer);
-    std::cout << "!!!" << std::endl;
-    res = curl_easy_perform(curl);
-    curl_easy_cleanup(curl);
-    if (res != CURLE_OK)
-    {
-        std::cout << "curl_easy_perform() failed" << std::endl;
-        return -1;
-    }
-    std::cout << readBuffer << std::endl;
 
     return 0;
 }
